@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ChromaVision — See Data Your Way</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<link rel="stylesheet" href="ColorB.css">
+</head>
+<body>
+<script src="ColorB.js"></script>
+<!-- Particle canvas — floating dots in background -->
+<canvas id="particleCanvas"></canvas>
+
+<!-- Cursor glow follower -->
+<div id="cursorGlow"></div>
+
+<!-- Loading overlay — fades out after first render -->
+<div id="loadingOverlay">
+  <div class="loading-logo">ChromaVision</div>
+  <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+  <div class="loading-sub">Loading inclusive charts…</div>
+</div>
+
+<!-- Scroll to top -->
+<button id="scrollTop" title="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3" style="width:300px;height:300px;background:rgba(255,77,109,0.04);top:50%;left:50%;transform:translate(-50%,-50%);animation:orbFloat 20s ease-in-out infinite 5s;"></div>
+<div class="orb orb4"></div>
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">🎨</div>
+      <div>
+        <div class="logo-text">ChromaVision</div>
+        <div class="logo-sub">INCLUSIVE DATA VISUALIZATION</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="clock">
+        <div id="clockTime" class="clock-time" style="font-weight:700;color:var(--accent)">00:00:00</div>
+        <div id="clockDate" class="clock-date" style="font-size:0.75em;color:var(--text3)">—</div>
+      </div>
+      <button class="theme-btn" id="hcHeaderBtn" onclick="toggleHighContrast(this)" title="High Contrast Mode (H)">
+        <span id="hcIcon">⬛</span>
+        <span id="hcLabel">Hi-C</span>
+      </button>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">
+        <span id="themeIcon">🌙</span>
+        <span id="themeLabel">Light</span>
+      </button>
+      <button class="theme-btn" onclick="switchTabById('advanced')" style="font-size:0.75em;padding:8px 12px" title="Keyboard: G=Generate, T=Theme, R=Random, 1-4=Tabs">
+        ⌨️ <span style="display:none" class="kbd-label">Shortcuts</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Banner -->
+  <div class="banner">
+    <span style="font-size:1.4em;flex-shrink:0">💙</span>
+    <span><strong>Different eyes see different beauty</strong> — We transform charts into inclusive visuals where every color tells a story and every pattern speaks clarity.</span>
+    <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+      <span class="badge" style="background:rgba(57,255,20,0.1);color:#39ff14;border-color:rgba(57,255,20,0.3)">WCAG 2.1</span>
+      <span class="badge" style="background:rgba(0,229,255,0.1);color:var(--accent)">CVD-Safe</span>
+      <span class="badge" style="background:rgba(124,92,252,0.1);color:var(--accent2)">AA+</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" id="tabBar">
+    <button class="tab active" onclick="switchTab('charts',this)"><span>📊</span> Charts</button>
+    <button class="tab" onclick="switchTab('advanced',this)"><span>⚙️</span> Advanced</button>
+    <button class="tab" onclick="switchTab('simulator',this)"><span>👁</span> Simulator</button>
+    <button class="tab" onclick="switchTab('feedback',this)"><span>💬</span> Feedback</button>
+  </div>
+
+  <!-- CHARTS TAB -->
+  <div id="tab-charts" class="tab-pane">
+    <div class="main-grid">
+
+      <!-- Left: Controls -->
+      <div>
+        <div class="panel">
+          <div class="panel-title">🖊 Chart Type</div>
+          <div class="chart-types" id="chartTypes"></div>
+
+          <div class="section-heading">Quick Load</div>
+          <div class="sample-btns-wrap" id="sampleBtns"></div>
+
+          <div class="action-row">
+            <button class="act-btn" onclick="randomData()">🎲 Random</button>
+            <button class="act-btn" onclick="printChart()">🖨️ Print</button>
+          </div>
+
+          <div class="section-heading">Configuration</div>
+
+          <label>Chart Title</label>
+          <input type="text" id="chartTitle" value="Monthly Sales Data" placeholder="Enter chart title" />
+          
+          <label>Y-Axis Label</label>
+          <input type="text" id="yAxisLabel" value="Sales ($)" placeholder="e.g., Revenue" />
+          
+          <label>Labels <span class="badge">comma-separated</span></label>
+          <input type="text" id="labelsInput" value="Jan, Feb, Mar, Apr, May, Jun" placeholder="e.g., Q1, Q2, Q3" />
+          
+          <label>Values <span class="badge">comma-separated</span></label>
+          <input type="text" id="valuesInput" value="65, 59, 80, 81, 56, 72" placeholder="e.g., 10, 20, 30" />
+          
+          <div id="values2Group" style="display:none">
+            <label id="values2Label">Second Dataset</label>
+            <input type="text" id="values2Input" value="" placeholder="e.g., 45, 62, 70" />
+            <div id="values2Hint" style="font-size:0.74em;color:var(--text3);margin-top:3px;font-style:italic"></div>
+          </div>
+
+          <div class="section-heading">Color Palette</div>
+          <div class="palettes" id="palettes"></div>
+
+          <div class="access-score-bar">
+            <span style="font-size:0.82em;color:var(--text2)">🏆 Palette Score</span>
+            <div id="accessScore"><span style="color:var(--text3);font-family:var(--font-mono)">Generate chart…</span></div>
+          </div>
+
+          <div class="section-heading">CSV Import</div>
+          <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFile').click()">
+            <div class="drop-icon">📁</div>
+            <div>Click or drag &amp; drop CSV file</div>
+            <div style="font-size:0.8em;margin-top:4px;color:var(--text3)">Label,Value,Value2</div>
+          </div>
+          <input type="file" id="csvFile" accept=".csv" style="display:none" />
+
+          <button class="gen-btn pulse ripple-host" onclick="generateCharts()" title="Keyboard shortcut: G">⚡ Generate Charts <span class="kbd-hint" style="margin-left:6px;opacity:0.7"><kbd style="background:rgba(0,0,0,0.2);border-color:rgba(255,255,255,0.2);color:inherit">G</kbd></span><div class="gen-btn-progress" id="genProgress"></div></button>
+
+          <div class="export-row">
+            <button class="exp-btn" onclick="exportChart('png')">📥 PNG</button>
+            <button class="exp-btn" onclick="exportChart('jpg')">📥 JPG</button>
+            <button class="exp-btn" onclick="exportCSV()">📄 CSV</button>
+            <button class="exp-btn" onclick="copyJSON()" title="Copy data as JSON to clipboard">📋 JSON</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Charts -->
+      <div>
+        <div class="charts-grid">
+          <!-- Original -->
+          <div class="chart-card" style="position:relative">
+            <div class="chart-card-header">
+              <span class="chart-card-title">Original Chart</span>
+            </div>
+            <div class="canvas-wrap"><canvas id="originalChart"></canvas></div>
+          </div>
+          <!-- Accessible -->
+          <div class="chart-card" id="accessibleCard" style="position:relative">
+            <div class="chart-card-header">
+              <span class="chart-card-title">Colorblind-Friendly</span>
+              <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+                <select id="cvdSelect" onchange="setCBType(this.value)">
+                  <option value="normal">👁 Normal Vision</option>
+                  <option value="protanopia">🔴 Protanopia (Red-blind)</option>
+                  <option value="deuteranopia">🟢 Deuteranopia (Green-blind)</option>
+                  <option value="tritanopia">🔵 Tritanopia (Blue-blind)</option>
+                  <option value="achromatopsia">⬜ Achromatopsia (No color)</option>
+                </select>
+                <button class="fullscreen-btn" onclick="toggleFS()">⤢ Expand</button>
+              </div>
+            </div>
+            <div class="canvas-wrap"><canvas id="accessibleChart"></canvas></div>
+            <div class="cvd-legend" id="cvdLegend" style="display:none"></div>
+          </div>
+        </div>
+
+        <!-- Insight -->
+        <div class="insight-box" id="insightBox" style="display:none">
+          <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+            <div class="score-ring-wrap">
+              <svg class="score-ring" viewBox="0 0 44 44">
+                <circle class="bg" cx="22" cy="22" r="18"/>
+                <circle class="fg" id="scoreRingFg" cx="22" cy="22" r="18" transform="rotate(-90 22 22)"/>
+              </svg>
+              <div>
+                <div class="insight-title" style="margin-bottom:4px">📌 Insight Summary</div>
+                <div class="insight-trend" id="insightTrend">—</div>
+              </div>
+            </div>
+          </div>
+          <div id="miniBars" class="mini-bars" style="margin:12px 0 8px"></div>
+          <div class="insight-stats" id="insightStats"></div>
+          <button class="table-toggle-btn" onclick="toggleDataTable()">📋 Show Data Table</button>
+          <div class="data-table-wrap" id="dataTableWrap">
+            <table class="data-table" id="dataTable">
+              <thead><tr><th>#</th><th>Label</th><th>Value</th><th>Bar</th></tr></thead>
+              <tbody id="dataTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADVANCED TAB -->
+  <div id="tab-advanced" class="tab-pane" style="display:none">
+    <div class="main-grid">
+      <div>
+        <div class="panel">
+          <div class="panel-title">⚙️ Advanced Options</div>
+
+          <div class="adv-row">
+            <div>
+              <label>Point Style</label>
+              <select id="pointStyle">
+                <option value="circle">● Circle</option>
+                <option value="rect">■ Rectangle</option>
+                <option value="triangle">▲ Triangle</option>
+                <option value="star">★ Star</option>
+                <option value="cross">✕ Cross</option>
+                <option value="dash">— Dash</option>
+              </select>
+            </div>
+            <div>
+              <label>Point Size</label>
+              <input type="number" id="pointSize" value="6" min="2" max="20" />
+            </div>
+          </div>
+
+          <div class="adv-row">
+            <div>
+              <label>Border Width</label>
+              <input type="number" id="borderWidth" value="3" min="1" max="8" />
+            </div>
+            <div>
+              <label>Line Tension</label>
+              <input type="number" id="lineTension" value="0.4" min="0" max="1" step="0.1" />
+            </div>
+          </div>
+
+          <div class="section-heading">Display</div>
+          
+          <div class="toggle-row">
+            <div class="toggle on" id="gridToggle" onclick="toggleOpt('showGrid',this)"><div class="toggle-knob"></div></div>
+            <span>Show Grid Lines</span>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle on" id="legendToggle" onclick="toggleOpt('showLegend',this)"><div class="toggle-knob"></div></div>
+            <span>Show Legend</span>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle on" id="labelsToggle" onclick="toggleOpt('showDatalabels',this)"><div class="toggle-knob"></div></div>
+            <span>Show Data Labels</span>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle" id="fillToggle" onclick="toggleOpt('fillArea',this)"><div class="toggle-knob"></div></div>
+            <span>Fill Area (Line/Radar)</span>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle on" id="animToggle" onclick="toggleOpt('enableAnimation',this)"><div class="toggle-knob"></div></div>
+            <span>Enable Animation</span>
+          </div>
+
+          <div class="section-heading">Keyboard Shortcuts</div>
+          <div class="shortcut-panel">
+            <div class="shortcut-row"><span>Generate charts</span><span><kbd>G</kbd></span></div>
+            <div class="shortcut-row"><span>Toggle dark/light</span><span><kbd>T</kbd></span></div>
+            <div class="shortcut-row"><span>Random data</span><span><kbd>R</kbd></span></div>
+            <div class="shortcut-row"><span>Tab: Charts</span><span><kbd>1</kbd></span></div>
+            <div class="shortcut-row"><span>Tab: Advanced</span><span><kbd>2</kbd></span></div>
+            <div class="shortcut-row"><span>Tab: Simulator</span><span><kbd>3</kbd></span></div>
+            <div class="shortcut-row"><span>Tab: Feedback</span><span><kbd>4</kbd></span></div>
+            <div class="shortcut-row"><span>Exit fullscreen</span><span><kbd>Esc</kbd></span></div>
+          </div>
+
+          <hr>
+          <button class="gen-btn" onclick="generateCharts();showToast('Settings applied!','success')">Apply & Regenerate</button>
+        </div>
+      </div>
+      <div>
+        <div class="panel" style="height:100%;display:flex;flex-direction:column;">
+          <div class="panel-title">🎛️ Live Preview</div>
+          <div class="canvas-wrap" style="flex:1;min-height:350px"><canvas id="previewChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIMULATOR TAB -->
+  <div id="tab-simulator" class="tab-pane" style="display:none">
+    <div class="panel">
+      <div class="panel-title">👁 Colorblind Vision Simulator</div>
+      <p style="color:var(--text2);font-size:0.85em;margin-bottom:16px">See how your chart appears under different types of color vision deficiency. Color Vision Deficiency (CVD) affects <strong style="color:var(--accent)">~300 million people</strong> globally — 8% of males, 0.5% of females.</p>
+      <div class="sim-grid" id="simGrid">
+        <div class="sim-card">
+          <div class="sim-title">◉ NORMAL VISION</div>
+          <div class="sim-canvas-wrap"><canvas id="simNormal"></canvas></div>
+          <div class="sim-prevalence">~92% of population</div>
+        </div>
+        <div class="sim-card">
+          <div class="sim-title">▲ PROTANOPIA</div>
+          <div class="sim-canvas-wrap"><canvas id="simProtanopia"></canvas></div>
+          <div class="sim-prevalence">Red-blind · ~1% males · 0.02% females</div>
+        </div>
+        <div class="sim-card">
+          <div class="sim-title">■ DEUTERANOPIA</div>
+          <div class="sim-canvas-wrap"><canvas id="simDeuteranopia"></canvas></div>
+          <div class="sim-prevalence">Green-blind · ~1% males · 0.01% females</div>
+        </div>
+        <div class="sim-card">
+          <div class="sim-title">◆ TRITANOPIA</div>
+          <div class="sim-canvas-wrap"><canvas id="simTritanopia"></canvas></div>
+          <div class="sim-prevalence">Blue-blind · ~0.003% population</div>
+        </div>
+        <div class="sim-card">
+          <div class="sim-title">○ ACHROMATOPSIA</div>
+          <div class="sim-canvas-wrap"><canvas id="simAchromatopsia"></canvas></div>
+          <div class="sim-prevalence">No color · ~0.003% · total blindness</div>
+        </div>
+        <div class="sim-card" style="display:flex;flex-direction:column;justify-content:space-between;gap:10px;padding:18px;">
+          <div>
+            <div class="sim-title" style="margin-bottom:8px">💡 WHY IT MATTERS</div>
+            <div style="font-size:0.75em;color:var(--text2);line-height:1.7">ChromaVision uses:<br>
+            ✦ Scientifically validated palettes<br>
+            ✦ Pattern fills for shape-based distinction<br>
+            ✦ High contrast borders on all elements<br>
+            ✦ WCAG 2.1 contrast scoring<br><br>
+            <strong style="color:var(--accent)">~300 million</strong> people globally have CVD.</div>
+          </div>
+          <button class="exp-btn" onclick="generateSimulator()">🔄 Refresh All Views</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEEDBACK TAB -->
+  <div id="tab-feedback" class="tab-pane" style="display:none">
+    <div class="main-grid">
+      <div>
+        <div class="panel">
+          <div class="panel-title">💬 Share Feedback</div>
+          
+          <div class="feedback-grid">
+            <div>
+              <label>Your Name</label>
+              <input type="text" id="fbName" placeholder="Jane Doe" />
+            </div>
+            <div>
+              <label>Email</label>
+              <input type="email" id="fbEmail" placeholder="you@email.com" />
+            </div>
+          </div>
+
+          <label>Rating</label>
+          <div class="rating-stars" id="ratingStars">
+            <span class="star" data-val="1">⭐</span>
+            <span class="star" data-val="2">⭐</span>
+            <span class="star" data-val="3">⭐</span>
+            <span class="star" data-val="4">⭐</span>
+            <span class="star" data-val="5">⭐</span>
+          </div>
+
+          <label>Feedback Type</label>
+          <select id="fbType">
+            <option value="">Select type…</option>
+            <option>UI Improvement</option>
+            <option>Accessibility Issue</option>
+            <option>Feature Request</option>
+            <option>Bug Report</option>
+            <option>General Feedback</option>
+          </select>
+
+          <label>Message</label>
+          <textarea id="fbMessage" placeholder="Share your thoughts…"></textarea>
+
+          <button class="gen-btn" onclick="submitFeedback()">📨 Submit Feedback</button>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="panel-title">📈 About ChromaVision</div>
+          <div style="color:var(--text2);font-size:0.88em;line-height:1.8">
+            <p style="margin-bottom:12px">ChromaVision helps you create charts that are readable by everyone — including people with color vision deficiency, which affects approximately <strong style="color:var(--accent)">8% of males</strong> and <strong style="color:var(--accent)">0.5% of females</strong>.</p>
+            <hr>
+            <div style="margin:16px 0">
+              <div class="section-heading" style="margin-top:0">Features</div>
+              <ul style="list-style:none;display:flex;flex-direction:column;gap:8px">
+                <li>✅ 8 chart types (bar, line, pie, scatter…)</li>
+                <li>✅ 7 colorblind-safe palettes (incl. Cividis)</li>
+                <li>✅ Pattern fills for shape-based distinction</li>
+                <li>✅ Vision simulation for 5 deficiency types</li>
+                <li>✅ WCAG 2.1 contrast scoring badge</li>
+                <li>✅ Animated insight ring + mini bar chart</li>
+                <li>✅ 5 quick-load sample datasets</li>
+                <li>✅ Random data generator</li>
+                <li>✅ CSV import &amp; drag-drop</li>
+                <li>✅ PNG, JPG, CSV &amp; Print export</li>
+                <li>✅ High Contrast mode</li>
+                <li>✅ Keyboard shortcuts (G, T, R, 1–4)</li>
+                <li>✅ Before/After comparison labels</li>
+                <li>✅ Light &amp; dark &amp; high-contrast themes</li>
+                <li>✅ Fully responsive design</li>
+              </ul>
+            </div>
+            <hr>
+            <div style="margin-top:16px">
+              <div class="section-heading" style="margin-top:0">Color Blindness Types</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div><strong style="color:#ff6b6b">Protanopia</strong> — Red-blind, ~1% of males</div>
+                <div><strong style="color:#51cf66">Deuteranopia</strong> — Green-blind, ~1% of males</div>
+                <div><strong style="color:#74c0fc">Tritanopia</strong> — Blue-blind, rare</div>
+                <div><strong style="color:var(--text2)">Achromatopsia</strong> — No color perception, very rare</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+</body>
+</html>
